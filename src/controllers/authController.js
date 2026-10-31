@@ -1,29 +1,32 @@
 const authService = require("../services/authService");
+const logger = require("../utils/logger");
 
-const signup = async (req, res) => {
+
+const signup = async (req, res, next) => {
   try {
-    const user = await authService.signup(req.body);
+    logger.info(`New signup attempt: ${req.body.email}`);
+    const user = await authService.signup(req.validatedData);
+    
+    logger.info(`User created successfully: ${user.email}`);
 
     res.status(201).json({
       message: "User created successfully",
       user
     });
   } catch (error) {
-    res.status(400).json({
-      error: error.message
-    });
+    next(error);
   }
 };
 
-const login = async (req, res) => {
+const login = async (req, res, next) => {
   try {
-    const result = await authService.login(req.body);
+    logger.info(`Login attempt: ${req.body.email}`);
+    const result = await authService.login(req.validatedData, req);
+    logger.info(`Login successful: ${req.body.email}`);
 
     res.json(result);
   } catch (error) {
-    res.status(401).json({
-      error: error.message
-    });
+    next(error);
   }
 };
 

@@ -1,31 +1,32 @@
+const { getActivePlanOrFallback } = require("../services/planService");
+
 const checkSubscription = (requiredPlans = []) => {
   return async (req, res, next) => {
     try {
       const userId = req.user.id;
 
-      const result = await pool.query(
-        `SELECT s.*, p.name
-         FROM subscriptions s
-         JOIN plans p ON s.plan_id = p.id
-         WHERE s.user_id=$1
-         AND s.status='active'
-         AND s.end_date > NOW()`,
-        [userId]
-      );
+      const plan = await getActivePlanOrFallback(userId);
 
-      if (result.rows.length === 0) {
-        return res.status(403).json({ error: "No active subscription" });
+      /*
+        If no specific plan is required, allow access.
+        If specific plans are required, check whether fallback/free plan is allowed.
+      */
+
+      if (requiredPlans.length && !requiredPlans.includes(plan.id)) {
+        return res.status(403).json({
+          success: false,
+          message: "Upgrade plan to access this feature",
+          currentPlan: plan.name,
+          fallbackApplied: plan.isFallback
+        });
       }
 
-      const userPlanId = result.rows[0].plan_id;
-
-      if (requiredPlans.length && !requiredPlans.includes(userPlanId)) {
-        return res.status(403).json({ error: "Upgrade plan to access this feature" });
-      }
+      req.plan = plan;
 
       next();
+
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      next(err);
     }
   };
 };
